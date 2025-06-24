@@ -124,8 +124,12 @@ function DoTaskForElements(rootNode, find, findRegex, replace, ignoreInput, chec
             const ruleKey = find + replace;
             if (executedNodeValues.get(ruleKey).get(path) != text) {
               executedNodeValues.get(ruleKey).set(path, result);
-              node.nodeValue = result;
-              node.textContent = result;
+             const newTextNode = document.createTextNode(result);
+            const parent = node.parentNode;
+            if (parent) {
+              parent.replaceChild(newTextNode, node);
+              parent.normalize(); // clean up empty nodes
+            }
             }
           }
         }
