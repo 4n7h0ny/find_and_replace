@@ -95,6 +95,9 @@ function DoTaskForElements(rootNode, find, findRegex, replace, ignoreInput, chec
         if (executedNodeValues.get(ruleKey).get(path) != text) {
           executedNodeValues.get(ruleKey).set(path, result);
           element.value = result;
+          if (element.hasAttribute("value")) {
+            element.setAttribute("value", result);
+          }
         }
       }
     } else if (element.childNodes.length > 0) {
@@ -122,6 +125,7 @@ function DoTaskForElements(rootNode, find, findRegex, replace, ignoreInput, chec
             if (executedNodeValues.get(ruleKey).get(path) != text) {
               executedNodeValues.get(ruleKey).set(path, result);
               node.nodeValue = result;
+              node.textContent = result;
             }
           }
         }
