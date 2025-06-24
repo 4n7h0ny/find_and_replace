@@ -62,42 +62,43 @@ function GetReplacedText(text, find, findRegex, replace) {
 function DoTaskForElements(rootNode, find, findRegex, replace, ignoreInput, check, highlight) {
   const elements = rootNode.querySelectorAll("*");
   let findCount = 0;
+
   for (const element of elements) {
-    if (IsInPageElement(element)) {
-      continue;
-    }
+    if (IsInPageElement(element)) continue;
+
     const tagName = element.tagName.toLowerCase();
     const exceptTagName = new Set(["head", "script", "style", "meta", "img", "link", "iframe", "title", "noscript", "base", "header", "nav", "article"]);
-    if (exceptTagName.has(tagName)) {
-      continue;
-    }
-    const visible = element.offsetWidth > 0 && element.offsetHeight > 0 && getComputedStyle(element).visibility == "visible";
-    if (!visible) {
-      continue;
-    }
-    if (!ignoreInput && (tagName == "input" || tagName == "textarea")) {
+    if (exceptTagName.has(tagName)) continue;
+
+    const visible = element.offsetWidth > 0 && element.offsetHeight > 0 && getComputedStyle(element).visibility === "visible";
+    if (!visible) continue;
+
+    if (!ignoreInput && (tagName === "input" || tagName === "textarea")) {
       const text = element.value;
       const result = GetReplacedText(text, find, findRegex, replace);
-      if (result == null || result == text) {
-        continue;
-      }
-      findCount = findCount + 1;
-      if (highlight) {
-        //do nothing
-      } else if (check) {
-        //do nothing
-      } else {
+      if (result == null || result === text) continue;
+
+      findCount++;
+      if (!highlight && !check) {
         const path = GetXPath(element);
         if (!originNodeValues.has(path)) {
           originNodeValues.set(path, { node: element, value: text });
         }
+
         const ruleKey = find + replace;
-        if (executedNodeValues.get(ruleKey).get(path) != text) {
-          executedNodeValues.get(ruleKey).set(path, result);
+        if (!executedNodeValues.has(ruleKey)) {
+          executedNodeValues.set(ruleKey, new Map());
+        }
+
+        const executedMap = executedNodeValues.get(ruleKey);
+        if (executedMap.get(path) !== text) {
+          executedMap.set(path, result);
           element.value = result;
           if (element.hasAttribute("value")) {
             element.setAttribute("value", result);
           }
+          element.dispatchEvent(new Event("input", { bubbles: true }));
+          element.dispatchEvent(new Event("change", { bubbles: true }));
         }
       }
     } else if (element.childNodes.length > 0) {
@@ -105,47 +106,53 @@ function DoTaskForElements(rootNode, find, findRegex, replace, ignoreInput, chec
         if (node.nodeType === Node.TEXT_NODE) {
           const text = node.nodeValue;
           const result = GetReplacedText(text, find, findRegex, replace);
-          if (result == null || result == text) {
-            continue;
-          }
-          findCount = findCount + 1;
+          if (result == null || result === text) continue;
+
+          findCount++;
+
           if (highlight) {
             const html = element.innerHTML;
-            const newHtml = html.replace(findRegex, match => `<span class="class_hl_find_and_replace" style="background-color:yellow">${match}</span>`);
+            const newHtml = html.replace(findRegex, match =>
+              `<span class="class_hl_find_and_replace" style="background-color:yellow">${match}</span>`
+            );
             element.innerHTML = newHtml;
             break;
-          } else if (check) {
-            // do nothing
-          } else {
+          } else if (!check) {
             const path = GetXPath(node);
             if (!originNodeValues.has(path)) {
               originNodeValues.set(path, { node: node, value: text });
             }
+
             const ruleKey = find + replace;
-            if (executedNodeValues.get(ruleKey).get(path) != text) {
-              executedNodeValues.get(ruleKey).set(path, result);
-             const newTextNode = document.createTextNode(result);
-            const parent = node.parentNode;
-            
-            if (parent) {
-              parent.replaceChild(newTextNode, node);
-              parent.normalize();
-            
-              // Optional: Add a mutation attribute to mark it
-              parent.setAttribute('data-replaced-text', 'true');
+            if (!executedNodeValues.has(ruleKey)) {
+              executedNodeValues.set(ruleKey, new Map());
             }
 
+            const executedMap = executedNodeValues.get(ruleKey);
+            if (executedMap.get(path) !== text) {
+              executedMap.set(path, result);
+
+              const newTextNode = document.createTextNode(result);
+              const parent = node.parentNode;
+              if (parent) {
+                parent.replaceChild(newTextNode, node);
+                parent.normalize();
+                parent.setAttribute("data-replaced-text", "true");
+              }
             }
           }
         }
       }
     }
+
     if (element.shadowRoot) {
-      findCount = findCount + DoTaskForElements(element.shadowRoot, find, findRegex, replace, ignoreInput, check, highlight);
+      findCount += DoTaskForElements(element.shadowRoot, find, findRegex, replace, ignoreInput, check, highlight);
     }
   }
+
   return findCount;
 }
+
 
 function RemoveHighLightElements() {
   while (true) {
@@ -335,24 +342,25 @@ async function main() {
   }
 }
 
-main(document.addEventListener('copy', (event) => {
+main();
+
+document.addEventListener('copy', (event) => {
   const selection = document.getSelection();
   if (!selection) return;
 
   let modifiedText = selection.toString();
 
-  // Fix edge case where selection looks original even though visible DOM has changed
   if (selection.rangeCount > 0) {
     const range = selection.getRangeAt(0).cloneContents();
     const div = document.createElement("div");
     div.appendChild(range);
-    const spans = div.querySelectorAll("[data-replaced-text='true']");
-    for (const span of spans) {
-      modifiedText = modifiedText.replace(span.textContent, span.textContent); // Triggers true value
+    const replacedElements = div.querySelectorAll("[data-replaced-text='true']");
+
+    for (const el of replacedElements) {
+      modifiedText = modifiedText.replace(el.textContent, el.textContent); // Refresh reference
     }
   }
 
   event.clipboardData.setData('text/plain', modifiedText);
-  event.preventDefault(); // Block default copy
+  event.preventDefault();
 });
-);
