@@ -342,15 +342,15 @@ async function main() {
   }
 }
 
-main(); // ← no argument!
+main();  // ← just call main by itself
 
+// Then separately attach the copy event listener
 document.addEventListener('copy', (event) => {
   const selection = document.getSelection();
   if (!selection) return;
 
   let modifiedText = selection.toString();
 
-  // Fix edge case where selection looks original even though visible DOM has changed
   if (selection.rangeCount > 0) {
     const range = selection.getRangeAt(0).cloneContents();
     const div = document.createElement("div");
