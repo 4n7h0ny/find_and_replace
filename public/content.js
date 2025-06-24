@@ -126,10 +126,15 @@ function DoTaskForElements(rootNode, find, findRegex, replace, ignoreInput, chec
               executedNodeValues.get(ruleKey).set(path, result);
              const newTextNode = document.createTextNode(result);
             const parent = node.parentNode;
+            
             if (parent) {
               parent.replaceChild(newTextNode, node);
-              parent.normalize(); // clean up empty nodes
+              parent.normalize();
+            
+              // Optional: Add a mutation attribute to mark it
+              parent.setAttribute('data-replaced-text', 'true');
             }
+
             }
           }
         }
@@ -330,4 +335,24 @@ async function main() {
   }
 }
 
-main();
+main(document.addEventListener('copy', (event) => {
+  const selection = document.getSelection();
+  if (!selection) return;
+
+  let modifiedText = selection.toString();
+
+  // Fix edge case where selection looks original even though visible DOM has changed
+  if (selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0).cloneContents();
+    const div = document.createElement("div");
+    div.appendChild(range);
+    const spans = div.querySelectorAll("[data-replaced-text='true']");
+    for (const span of spans) {
+      modifiedText = modifiedText.replace(span.textContent, span.textContent); // Triggers true value
+    }
+  }
+
+  event.clipboardData.setData('text/plain', modifiedText);
+  event.preventDefault(); // Block default copy
+});
+);
