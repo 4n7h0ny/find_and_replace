@@ -342,7 +342,7 @@ async function main() {
   }
 }
 
-main();
+main(); // ← no argument!
 
 document.addEventListener('copy', (event) => {
   const selection = document.getSelection();
@@ -350,14 +350,14 @@ document.addEventListener('copy', (event) => {
 
   let modifiedText = selection.toString();
 
+  // Fix edge case where selection looks original even though visible DOM has changed
   if (selection.rangeCount > 0) {
     const range = selection.getRangeAt(0).cloneContents();
     const div = document.createElement("div");
     div.appendChild(range);
-    const replacedElements = div.querySelectorAll("[data-replaced-text='true']");
-
-    for (const el of replacedElements) {
-      modifiedText = modifiedText.replace(el.textContent, el.textContent); // Refresh reference
+    const spans = div.querySelectorAll("[data-replaced-text='true']");
+    for (const span of spans) {
+      modifiedText = modifiedText.replace(span.textContent, span.textContent);
     }
   }
 
